@@ -510,7 +510,6 @@ export function Bank() {
                 <QuestionForm
                   value={editing.draft}
                   onChange={(draft) => setEditing({ ...editing, draft })}
-                  subjects={subjects}
                   topics={topics}
                 />
                 <Group justify="flex-end">

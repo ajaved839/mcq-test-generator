@@ -227,7 +227,7 @@ function GeneralTab() {
         <TagsInput
           mt="sm"
           label="Staff names"
-          description="If set, the app asks who is using it at start so the history shows names. Leave empty to use the computer login."
+          description="If set, only these names can be entered at sign-in. Leave empty to allow any name."
           value={draft.staff}
           onChange={(v) => set({ staff: v })}
         />
@@ -565,6 +565,7 @@ function BackupTab() {
 
 const ACTION_LABEL: Record<string, string> = {
   'import.staged': 'Imported for review',
+  'import.deleted': 'Import deleted',
   'review.approved': 'Approved into bank',
   'review.rejected': 'Rejected in review',
   'review.merged': 'Merged duplicate',
@@ -585,6 +586,8 @@ const ACTION_LABEL: Record<string, string> = {
   'merge.exported': 'History exported',
   'merge.applied': 'History merged',
   'session.started': 'Signed in',
+  'session.ended': 'Signed out',
+  'session.login-failed': 'Failed sign-in',
 };
 
 function AuditTab() {

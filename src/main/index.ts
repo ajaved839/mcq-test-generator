@@ -12,7 +12,7 @@ import {
 import { existsSync } from 'node:fs';
 import { join, normalize, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { api, type Channel, type HandlerEnv, type ProgressEvent } from './api';
+import { api, PUBLIC_CHANNELS, type Channel, type HandlerEnv, type ProgressEvent } from './api';
 import { getImage } from './db/images';
 import { WorkspaceTooNewError } from './db/migrations';
 import { initLogger, log } from './logger';
@@ -176,6 +176,10 @@ function registerIpc(): void {
         log('warn', 'ipc.untrusted-sender', { channel });
         return { ok: false, error: { message: 'Request refused.' } };
       }
+      if (!PUBLIC_CHANNELS.has(channel) && !state.signedIn) {
+        log('warn', 'ipc.not-signed-in', { channel });
+        return { ok: false, error: { message: 'Sign in first.' } };
+      }
       const parsed = def.input.safeParse(raw);
       if (!parsed.success) {
         const issue = parsed.error?.issues[0];
@@ -203,7 +207,7 @@ function createWindow(): void {
     minWidth: 1024,
     minHeight: 680,
     show: false,
-    title: 'MCQ Test Generator',
+    title: 'MCQ Shuffler - Medical Institutes',
     backgroundColor: '#f7f9fa',
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
@@ -259,7 +263,7 @@ if (!app.requestSingleInstanceLock()) {
       log('error', 'workspace.open-failed', error);
       await dialog.showMessageBox({
         type: 'error',
-        title: 'MCQ Test Generator',
+        title: 'MCQ Shuffler - Medical Institutes',
         message:
           error instanceof WorkspaceTooNewError
             ? error.message

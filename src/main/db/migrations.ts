@@ -147,7 +147,7 @@ export const SCHEMA_VERSION = MIGRATIONS.length;
 export class WorkspaceTooNewError extends Error {
   constructor(public readonly found: number) {
     super(
-      `This workspace was created by a newer version of MCQ Test Generator (schema ${found}, this app supports ${SCHEMA_VERSION}). Install the newer version to open it.`,
+      `This workspace was created by a newer version of MCQ Shuffler (schema ${found}, this app supports ${SCHEMA_VERSION}). Install the newer version to open it.`,
     );
     this.name = 'WorkspaceTooNewError';
   }

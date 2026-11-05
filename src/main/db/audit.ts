@@ -8,6 +8,7 @@ import { nowIso } from './workspace';
 
 export type AuditAction =
   | 'import.staged'
+  | 'import.deleted'
   | 'review.approved'
   | 'review.rejected'
   | 'review.merged'
@@ -27,7 +28,9 @@ export type AuditAction =
   | 'backup.restored'
   | 'merge.exported'
   | 'merge.applied'
-  | 'session.started';
+  | 'session.started'
+  | 'session.ended'
+  | 'session.login-failed';
 
 export interface AuditEntry {
   id: number;

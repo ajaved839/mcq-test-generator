@@ -7,10 +7,7 @@ import {
   Group,
   Loader,
   MantineProvider,
-  Modal,
   NavLink,
-  Select,
-  Stack,
   Text,
   Title,
 } from '@mantine/core';
@@ -22,6 +19,7 @@ import {
   IconFileImport,
   IconHistory,
   IconHome,
+  IconLogout,
   IconSettings,
   IconShieldCheck,
   IconUser,
@@ -37,6 +35,7 @@ import {
 } from 'react';
 import type { Settings } from '../../shared/schemas';
 import { call, type Out } from './api';
+import { Login } from './components/Login';
 import { NavContext, notifyError, type NavTarget, type Screen } from './lib';
 import { Bank } from './screens/Bank';
 import { Generate } from './screens/Generate';
@@ -68,48 +67,6 @@ const NAV: Array<{ screen: Screen; label: string; icon: ReactNode }> = [
   { screen: 'tests', label: 'Tests and history', icon: <IconHistory size={18} aria-hidden /> },
   { screen: 'settings', label: 'Settings', icon: <IconSettings size={18} aria-hidden /> },
 ];
-
-function StaffPicker({ staff, onPicked }: { staff: string[]; onPicked: () => void }) {
-  const [name, setName] = useState<string | null>(null);
-  return (
-    <Modal
-      opened
-      onClose={() => undefined}
-      withCloseButton={false}
-      closeOnClickOutside={false}
-      closeOnEscape={false}
-      title="Who is using the app?"
-      centered
-    >
-      <Stack>
-        <Text size="sm">
-          Pick your name so the history shows who imported, edited or generated each item.
-        </Text>
-        <Select
-          label="Your name"
-          data={staff}
-          value={name}
-          onChange={setName}
-          searchable
-          data-autofocus
-        />
-        <Button
-          disabled={!name}
-          onClick={async () => {
-            try {
-              await call('app:setActor', { name: name! });
-              onPicked();
-            } catch (error) {
-              notifyError(error);
-            }
-          }}
-        >
-          Continue
-        </Button>
-      </Stack>
-    </Modal>
-  );
-}
 
 function Shell() {
   const { info, refresh } = useAppData();
@@ -146,7 +103,7 @@ function Shell() {
             <Group gap="xs">
               <IconShieldCheck size={22} color="var(--mantine-color-clinical-7)" aria-hidden />
               <Title order={1} size="h4">
-                MCQ Test Generator
+                MCQ Shuffler - Medical Institutes
               </Title>
               <Badge
                 variant="light"
@@ -159,6 +116,22 @@ function Shell() {
             <Group gap="xs">
               <IconUser size={16} aria-hidden />
               <Text size="sm">{info.actor ?? info.osUser}</Text>
+              <Button
+                size="compact-sm"
+                variant="subtle"
+                color="gray"
+                leftSection={<IconLogout size={14} aria-hidden />}
+                onClick={async () => {
+                  try {
+                    await call('app:logout');
+                    await refresh();
+                  } catch (error) {
+                    notifyError(error);
+                  }
+                }}
+              >
+                Sign out
+              </Button>
             </Group>
           </Group>
         </AppShell.Header>
@@ -204,9 +177,6 @@ function Shell() {
           <main aria-live="polite">{content}</main>
         </AppShell.Main>
       </AppShell>
-      {info.needsStaffPick ? (
-        <StaffPicker staff={info.staff} onPicked={() => void refresh()} />
-      ) : null}
     </NavContext.Provider>
   );
 }
@@ -219,9 +189,10 @@ export function Root() {
 
   const refresh = useCallback(async () => {
     try {
-      const [i, s] = await Promise.all([call('app:info'), call('settings:get')]);
+      // Settings are only readable after sign-in; the login screen uses the theme from app:info.
+      const i = await call('app:info');
+      setSettings(i.signedIn ? await call('settings:get') : null);
       setInfo(i);
-      setSettings(s);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -232,11 +203,12 @@ export function Root() {
   }, [refresh]);
 
   useEffect(() => {
-    if (settings) document.documentElement.style.fontSize = `${settings.textScalePct}%`;
-  }, [settings]);
+    const pct = settings?.textScalePct ?? info?.textScalePct;
+    if (pct) document.documentElement.style.fontSize = `${pct}%`;
+  }, [settings, info]);
 
-  const scheme =
-    settings?.theme === 'dark' ? 'dark' : settings?.theme === 'light' ? 'light' : system;
+  const themePref = settings?.theme ?? info?.theme;
+  const scheme = themePref === 'dark' ? 'dark' : themePref === 'light' ? 'light' : system;
   const data = useMemo(
     () => (info && settings ? { info, settings, refresh } : null),
     [info, settings, refresh],
@@ -249,6 +221,8 @@ export function Root() {
         <AppDataContext.Provider value={data}>
           <Shell />
         </AppDataContext.Provider>
+      ) : info && !info.signedIn ? (
+        <Login staff={info.staff} onSignedIn={() => void refresh()} />
       ) : (
         <Center h="100vh">
           {error ? (

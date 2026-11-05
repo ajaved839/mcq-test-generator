@@ -18,6 +18,7 @@ import type { RichText } from '../../../core/richtext';
 import { optionLockReason } from '../../../core/shuffle';
 import type { Difficulty } from '../../../core/types';
 import { RichEditor } from './RichEditor';
+import { SubjectSelect } from './SubjectSelect';
 
 /** The fields every question has, shared by the bank editor and the review queue. */
 export interface QuestionDraft {
@@ -45,20 +46,17 @@ const LOCK_TEXT = {
 export function QuestionForm({
   value,
   onChange,
-  subjects,
   topics = [],
   disabled = false,
 }: {
   value: QuestionDraft;
   onChange: (next: QuestionDraft) => void;
-  subjects: string[];
   topics?: string[];
   disabled?: boolean;
 }) {
   const set = <K extends keyof QuestionDraft>(key: K, v: QuestionDraft[K]): void =>
     onChange({ ...value, [key]: v });
   const lock = optionLockReason({ options: value.options, lockOptions: value.lockOptions });
-  const subjectData = [...new Set([...subjects, value.subject].filter(Boolean))];
 
   const setOption = (index: number, rich: RichText): void => {
     const options = value.options.slice();
@@ -137,12 +135,10 @@ export function QuestionForm({
         ) : null}
       </Group>
       <SimpleGrid cols={{ base: 1, sm: 3 }}>
-        <Select
+        <SubjectSelect
           label="Subject"
-          data={subjectData}
-          value={value.subject || null}
-          onChange={(v) => set('subject', v ?? '')}
-          searchable
+          value={value.subject}
+          onChange={(v) => set('subject', v)}
           required
           error={!value.subject ? 'Choose a subject.' : undefined}
         />

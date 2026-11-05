@@ -429,7 +429,6 @@ export function ReviewQueue({ batchId, onBack }: { batchId: string; onBack: () =
                       setDraft(d);
                       setDirty(true);
                     }}
-                    subjects={settings.subjects}
                     disabled={current.status !== 'pending'}
                   />
                   {current.status === 'pending' ? (

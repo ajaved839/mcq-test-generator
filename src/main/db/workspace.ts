@@ -9,7 +9,7 @@ import { migrate, schemaVersion } from './migrations';
  */
 
 export interface ActorContext {
-  /** Staff name picked at startup, or the OS user when no staff list is configured. */
+  /** Name entered at sign-in, or the OS user before anyone has signed in. */
   actor: string;
   osUser: string;
 }

@@ -5,7 +5,8 @@
 
 export const CHANNELS = [
   'app:info',
-  'app:setActor',
+  'app:login',
+  'app:logout',
   'app:saveDiagnostics',
   'settings:get',
   'settings:update',
@@ -31,6 +32,7 @@ export const CHANNELS = [
   'import:docxStage',
   'import:ocrStage',
   'import:batches',
+  'import:deleteBatch',
   'import:items',
   'review:update',
   'review:approve',
