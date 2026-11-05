@@ -1,6 +1,7 @@
 import {
   AlignmentType,
   Document,
+  HeadingLevel,
   ImageRun,
   LevelFormat,
   Math as DocxMath,
@@ -186,6 +187,48 @@ describe('Word importer', () => {
     const { lines } = await readDocx(await buildDocx(), () => 'b'.repeat(64));
     const result = parseMcqLines(lines, { convention: 'bold' });
     expect(result.mcqs.map((m) => m.correct)).toEqual([1, 1, null]);
+  });
+
+  it('reads a grid answer key with header row and Word headings as sections', async () => {
+    const cell = (value: string): TableCell => new TableCell({ children: [new Paragraph(value)] });
+    const question = (n: number, stem: string): Paragraph[] => [
+      new Paragraph(`${n}. ${stem}`),
+      ...['A. one', 'B. two', 'C. three'].map((o) => new Paragraph(o)),
+    ];
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({ text: 'Preoperative Care', heading: HeadingLevel.HEADING_1 }),
+            ...question(1, 'First?'),
+            ...question(2, 'Second?'),
+            new Paragraph({ text: 'Burn Injury', heading: HeadingLevel.HEADING_1 }),
+            ...question(3, 'Third?'),
+            ...question(4, 'Fourth?'),
+            new Paragraph({ text: 'Answer Key – Set 1', heading: HeadingLevel.HEADING_1 }),
+            new Table({
+              rows: [
+                new TableRow({ children: [cell('Q 1–2'), cell('Q 3–4')] }),
+                new TableRow({ children: [cell('1. B'), cell('3. A')] }),
+                new TableRow({ children: [cell('2. C'), cell('4. B')] }),
+              ],
+            }),
+          ],
+        },
+      ],
+    });
+    const { lines } = await readDocx(new Uint8Array(await Packer.toBuffer(doc)), () => null);
+    const result = parseMcqLines(lines);
+    expect(result.answerKey).toEqual({ 1: 'B', 2: 'C', 3: 'A', 4: 'B' });
+    expect(result.mcqs.map((m) => m.correct)).toEqual([1, 2, 0, 1]);
+    expect(result.mcqs.map((m) => m.section)).toEqual([
+      'Preoperative Care',
+      'Preoperative Care',
+      'Burn Injury',
+      'Burn Injury',
+    ]);
+    expect(result.mcqs.flatMap((m) => m.warnings)).toEqual([]);
+    expect(result.unplaced).toEqual([]);
   });
 
   it('rejects files that are not .docx', async () => {

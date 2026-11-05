@@ -31,6 +31,8 @@ export interface PaperBuildInput {
   /** Base URL for fonts (app://bundle/fonts in the app). */
   fontBase: string;
   html: HtmlOptions;
+  /** Print this version's answer key on a new page after the questions. */
+  answerKeyAtEnd?: boolean;
 }
 
 const LETTERS = 'ABCDE';
@@ -75,6 +77,7 @@ table.q-table { border-collapse: collapse; margin: 1mm 0; }
 table.q-table td { border: 0.5pt solid #000; padding: 0.6mm 2mm; vertical-align: top; }
 .end { text-align: center; margin-top: 6mm; font-weight: 700; letter-spacing: 0.1em; }
 .key h2 { margin: 0 0 2mm; }
+.key.at-end { break-before: page; }
 .key table { border-collapse: collapse; width: 100%; margin-bottom: 6mm; }
 .key td, .key th { border: 0.6pt solid #000; padding: 1mm 2mm; text-align: center; font-size: 0.95em; }
 .confidential { text-align: center; font-weight: 700; letter-spacing: 0.15em; border: 1.2pt solid #000; padding: 1.5mm; margin-bottom: 3mm; }
@@ -158,6 +161,8 @@ export function buildPaperBody(input: PaperBuildInput): string {
   });
   if (open) parts.push('</ol>');
   parts.push('<div class="end">END OF PAPER</div>');
+  if (input.answerKeyAtEnd)
+    parts.push(`<section class="key at-end"><h2>Answer key</h2>${keyTableHtml(version)}</section>`);
   return `<main class="paper">${parts.join('\n')}</main>`;
 }
 
@@ -190,19 +195,24 @@ export interface KeyBuildInput {
   includeExplanations: boolean;
 }
 
+/** One version's answers as a grid: question numbers over the letters, ten to a row. */
+function keyTableHtml(v: PaperVersion): string {
+  const rows: string[] = [];
+  const perRow = 10;
+  for (let start = 0; start < v.questions.length; start += perRow) {
+    const slice = v.questions.slice(start, start + perRow);
+    rows.push(`<tr>${slice.map((_, i) => `<th>${start + i + 1}</th>`).join('')}</tr>`);
+    rows.push(
+      `<tr>${slice.map((q) => `<td><strong>${q.correctLetter}</strong></td>`).join('')}</tr>`,
+    );
+  }
+  return `<table>${rows.join('')}</table>`;
+}
+
 /** Answer key for every version, marked confidential, in a separate file from the paper. */
 export function buildKeyHtml(input: KeyBuildInput): string {
   const { header: h } = input;
   const sections = input.versions.map((v) => {
-    const rows: string[] = [];
-    const perRow = 10;
-    for (let start = 0; start < v.questions.length; start += perRow) {
-      const slice = v.questions.slice(start, start + perRow);
-      rows.push(`<tr>${slice.map((_, i) => `<th>${start + i + 1}</th>`).join('')}</tr>`);
-      rows.push(
-        `<tr>${slice.map((q) => `<td><strong>${q.correctLetter}</strong></td>`).join('')}</tr>`,
-      );
-    }
     const explanations = input.includeExplanations
       ? v.questions
           .map((vq, i) => {
@@ -213,7 +223,7 @@ export function buildKeyHtml(input: KeyBuildInput): string {
           })
           .join('')
       : '';
-    return `<section class="key"><h2>${input.versions.length > 1 ? `Version ${v.letter}` : 'Answers'}</h2><table>${rows.join('')}</table>${explanations}</section>`;
+    return `<section class="key"><h2>${input.versions.length > 1 ? `Version ${v.letter}` : 'Answers'}</h2>${keyTableHtml(v)}${explanations}</section>`;
   });
   const body = `<main class="paper"><div class="confidential">CONFIDENTIAL: ANSWER KEY</div>${headerHtml(h, null)}<div class="facts"><span>Questions: <strong>${input.versions[0]?.questions.length ?? 0}</strong></span><span>Versions: <strong>${input.versions.map((v) => v.letter).join(', ')}</strong></span></div>${sections.join('')}</main>`;
   return wrapDocument(
