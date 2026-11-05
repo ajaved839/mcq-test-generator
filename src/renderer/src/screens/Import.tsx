@@ -7,6 +7,7 @@ import {
   Group,
   Image,
   List,
+  Modal,
   Progress,
   Select,
   SimpleGrid,
@@ -570,6 +571,7 @@ export function ImportScreen() {
   const [source, setSource] = useState<Source | null>(null);
   const [tab, setTab] = useState<string | null>('new');
   const batches = useLoad(() => call('import:batches'));
+  const [deleting, setDeleting] = useState<Out<'import:batches'>[number] | null>(null);
 
   if (params.batch)
     return <ReviewQueue batchId={params.batch} onBack={() => go({ screen: 'import' })} />;
@@ -669,13 +671,24 @@ export function ImportScreen() {
                   <Table.Td>{b.counts.approved + b.counts.merged}</Table.Td>
                   <Table.Td>{b.counts.rejected + b.counts.skipped}</Table.Td>
                   <Table.Td>
-                    <Button
-                      size="xs"
-                      variant={b.counts.pending ? 'filled' : 'subtle'}
-                      onClick={() => openBatch(b.id)}
-                    >
-                      {b.counts.pending ? 'Review' : 'View'}
-                    </Button>
+                    <Group gap="xs" wrap="nowrap" justify="flex-end">
+                      <Button
+                        size="xs"
+                        variant={b.counts.pending ? 'filled' : 'subtle'}
+                        onClick={() => openBatch(b.id)}
+                      >
+                        {b.counts.pending ? 'Review' : 'View'}
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="red"
+                        aria-label={`Delete import ${b.fileName}`}
+                        onClick={() => setDeleting(b)}
+                      >
+                        Delete
+                      </Button>
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               ))}
@@ -692,6 +705,74 @@ export function ImportScreen() {
           </Table>
         </Tabs.Panel>
       </Tabs>
+      <DeleteImportModal
+        batch={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => {
+          setDeleting(null);
+          void batches.reload();
+        }}
+      />
     </Stack>
+  );
+}
+
+/** Confirms deleting an import; removing its approved questions from the bank is opt-in. */
+function DeleteImportModal({
+  batch,
+  onClose,
+  onDeleted,
+}: {
+  batch: Out<'import:batches'>[number] | null;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [removeQuestions, setRemoveQuestions] = useState(false);
+  const [busy, run] = useAction();
+  useEffect(() => setRemoveQuestions(false), [batch]);
+  const approved = batch?.counts.approved ?? 0;
+
+  return (
+    <Modal opened={!!batch} onClose={onClose} title="Delete import">
+      {batch ? (
+        <Stack>
+          <Text size="sm">
+            Delete <strong>{batch.fileName || '(no name)'}</strong> from the import list? Its{' '}
+            {batch.counts.pending} questions waiting for review will be discarded.
+          </Text>
+          {approved ? (
+            <Checkbox
+              label={`Also remove the ${approved} questions this import added to the question bank`}
+              description="Questions already used in a test are archived instead, so test history and reprints stay intact."
+              checked={removeQuestions}
+              onChange={(e) => setRemoveQuestions(e.currentTarget.checked)}
+            />
+          ) : null}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              loading={busy}
+              onClick={async () => {
+                const r = await run(() =>
+                  call('import:deleteBatch', { batchId: batch.id, removeQuestions }),
+                );
+                if (!r) return;
+                const parts = [
+                  r.deleted ? `${r.deleted} questions removed from the bank` : '',
+                  r.archived ? `${r.archived} used in tests were archived` : '',
+                ].filter(Boolean);
+                notifyOk(`Import deleted${parts.length ? `; ${parts.join(', ')}` : ''}.`);
+                onDeleted();
+              }}
+            >
+              Delete import
+            </Button>
+          </Group>
+        </Stack>
+      ) : null}
+    </Modal>
   );
 }

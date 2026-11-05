@@ -6,8 +6,10 @@ import { audit } from './audit';
 import {
   allComparable,
   createQuestion,
+  deleteUnused,
   findByFingerprint,
   getQuestion,
+  setStatus,
   updateQuestion,
 } from './questions';
 import { newId, nowIso, type ActorContext, type Workspace } from './workspace';
@@ -515,4 +517,50 @@ export function convertUnplaced(
   };
   writeItem(ws, { ...item, kind: 'mcq', candidate, unplaced: null });
   return getItem(ws, itemId, subjects)!;
+}
+
+export interface DeleteBatchOutcome {
+  /** Bank questions removed because they were approved from this import and never used. */
+  deleted: number;
+  /** Bank questions archived instead because an issued test used them. */
+  archived: number;
+}
+
+/**
+ * Deletes an import and its review queue. Questions it added to the bank stay unless
+ * `removeQuestions` is set; then unused ones are deleted and ones used in a test are archived,
+ * so test history and reprints stay intact. Merged items point at older bank questions and are
+ * never touched.
+ */
+export function deleteBatch(
+  ws: Workspace,
+  ctx: ActorContext,
+  batchId: string,
+  options: { removeQuestions: boolean },
+): DeleteBatchOutcome {
+  return ws.transaction(() => {
+    const batch = getBatch(ws, batchId);
+    if (!batch) throw new Error('That import was not found.');
+    const added = (
+      ws.db
+        .prepare(
+          "SELECT question_id FROM review_items WHERE batch_id = ? AND status = 'approved' AND question_id IS NOT NULL",
+        )
+        .all(batchId) as Array<{ question_id: string }>
+    ).map((r) => r.question_id);
+    const outcome: DeleteBatchOutcome = { deleted: 0, archived: 0 };
+    if (options.removeQuestions && added.length) {
+      const { deleted, refused } = deleteUnused(ws, ctx, added);
+      outcome.deleted = deleted;
+      outcome.archived = refused.length ? setStatus(ws, ctx, refused, 'archived') : 0;
+    }
+    ws.db.prepare('DELETE FROM review_items WHERE batch_id = ?').run(batchId);
+    ws.db.prepare('DELETE FROM import_batches WHERE id = ?').run(batchId);
+    audit(ws, ctx, 'import.deleted', 'batch', batchId, {
+      fileName: batch.fileName,
+      removeQuestions: options.removeQuestions,
+      ...outcome,
+    });
+    return outcome;
+  });
 }

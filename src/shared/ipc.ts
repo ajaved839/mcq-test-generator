@@ -31,6 +31,7 @@ export const CHANNELS = [
   'import:docxStage',
   'import:ocrStage',
   'import:batches',
+  'import:deleteBatch',
   'import:items',
   'review:update',
   'review:approve',

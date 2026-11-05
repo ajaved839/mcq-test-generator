@@ -33,6 +33,7 @@ import { getImage, putImage } from './db/images';
 import {
   approveItems,
   convertUnplaced,
+  deleteBatch,
   getItem,
   listBatches,
   listItems,
@@ -676,6 +677,13 @@ export const api = {
     },
   ),
   'import:batches': handler(none, (env) => listBatches(env.state.ws)),
+  'import:deleteBatch': handler(
+    z.object({ batchId: id, removeQuestions: z.boolean() }).strict(),
+    (env, input) =>
+      deleteBatch(env.state.ws, env.state.ctx, input.batchId, {
+        removeQuestions: input.removeQuestions,
+      }),
+  ),
   'import:items': handler(
     z
       .object({

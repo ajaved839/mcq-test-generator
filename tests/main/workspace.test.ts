@@ -6,6 +6,8 @@ import { plain } from '../../src/core/richtext';
 import { listAudit } from '../../src/main/db/audit';
 import {
   approveItems,
+  deleteBatch,
+  listBatches,
   listItems,
   mergeItem,
   rejectItems,
@@ -258,6 +260,56 @@ describe('workspace', () => {
     expect(listQuestions(ws, bankFilter.parse({})).total).toBe(5);
     expect(
       listAudit(ws, { limit: 100, offset: 0 }).entries.some((e) => e.action === 'review.approved'),
+    ).toBe(true);
+  });
+
+  it('deletes an import, optionally removing the questions it added', () => {
+    const stage = (fileName: string, n: number) =>
+      stageBatch(
+        ws,
+        ctx,
+        {
+          sourceType: 'docx',
+          fileName,
+          settings: {},
+          candidates: [{ candidate: candidate(n) }, { candidate: candidate(n + 1) }],
+          unplaced: [],
+        },
+        90,
+      );
+    const kept = stage('keep.docx', 10);
+    const keptItems = listItems(ws, kept.id, subjects);
+    approveItems(ws, ctx, [keptItems[0].id], subjects);
+    expect(deleteBatch(ws, ctx, kept.id, { removeQuestions: false })).toEqual({
+      deleted: 0,
+      archived: 0,
+    });
+    expect(listQuestions(ws, bankFilter.parse({})).total).toBe(1);
+
+    const removed = stage('remove.docx', 20);
+    const items = listItems(ws, removed.id, subjects);
+    approveItems(
+      ws,
+      ctx,
+      items.map((i) => i.id),
+      subjects,
+    );
+    const [used, unused] = listItems(ws, removed.id, subjects).map((i) => i.questionId!);
+    saveOutsideTest(ws, ctx, {
+      title: 'Synthetic past paper',
+      sourceFile: 'past.docx',
+      createdAt: '2026-01-01',
+      items: [{ snapshot: getQuestion(ws, used)!, questionId: used, score: 1, confirmed: true }],
+    });
+    expect(deleteBatch(ws, ctx, removed.id, { removeQuestions: true })).toEqual({
+      deleted: 1,
+      archived: 1,
+    });
+    expect(getQuestion(ws, unused)).toBeNull();
+    expect(getQuestion(ws, used)!.status).toBe('archived');
+    expect(listBatches(ws)).toEqual([]);
+    expect(
+      listAudit(ws, { limit: 100, offset: 0 }).entries.some((e) => e.action === 'import.deleted'),
     ).toBe(true);
   });
 });

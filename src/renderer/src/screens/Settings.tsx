@@ -565,6 +565,7 @@ function BackupTab() {
 
 const ACTION_LABEL: Record<string, string> = {
   'import.staged': 'Imported for review',
+  'import.deleted': 'Import deleted',
   'review.approved': 'Approved into bank',
   'review.rejected': 'Rejected in review',
   'review.merged': 'Merged duplicate',

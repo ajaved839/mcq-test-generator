@@ -8,6 +8,7 @@ import { nowIso } from './workspace';
 
 export type AuditAction =
   | 'import.staged'
+  | 'import.deleted'
   | 'review.approved'
   | 'review.rejected'
   | 'review.merged'
