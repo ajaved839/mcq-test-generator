@@ -94,7 +94,7 @@ export function readHeader(file: Uint8Array): {
 } {
   const buf = Buffer.from(file.buffer, file.byteOffset, file.byteLength);
   if (buf.length < MAGIC.length + 4 + 16 || !buf.subarray(0, MAGIC.length).equals(MAGIC)) {
-    throw new Error('This is not an MCQ Test Generator backup or merge file.');
+    throw new Error('This is not an MCQ Shuffler backup or merge file.');
   }
   const length = buf.readUInt32BE(MAGIC.length);
   const start = MAGIC.length + 4;

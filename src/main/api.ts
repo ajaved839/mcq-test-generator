@@ -101,6 +101,9 @@ import { inspectWorkspaceFile } from './backup';
  * validated with zod before it reaches the database; file paths never come from the UI.
  */
 
+/** Channels the UI may call before signing in; every other channel is refused until then. */
+export const PUBLIC_CHANNELS: ReadonlySet<string> = new Set(['app:info', 'app:login']);
+
 export interface HandlerEnv {
   state: AppState;
   window: () => BrowserWindow | null;
@@ -330,7 +333,7 @@ export const api = {
       osUser: env.state.osUser,
       actor: env.state.actor,
       staff: s.staff,
-      needsStaffPick: s.staff.length > 0 && !env.state.actor,
+      signedIn: env.state.signedIn,
       workspaceFolder: env.state.paths.dataDir,
       theme: s.theme,
       textScalePct: s.textScalePct,
@@ -338,9 +341,22 @@ export const api = {
       lastManualBackup: s.backup.lastManualAt,
     };
   }),
-  'app:setActor': handler(z.object({ name: z.string().min(1).max(100) }).strict(), (env, input) => {
-    env.state.setActor(input.name);
-    return { actor: input.name };
+  'app:login': handler(
+    z
+      .object({
+        username: z.string().min(1).max(100),
+        password: z.string().min(1).max(200),
+        name: z.string().trim().min(1).max(100),
+      })
+      .strict(),
+    async (env, input) => {
+      await env.state.signIn(input.username, input.password, input.name);
+      return { actor: env.state.actor };
+    },
+  ),
+  'app:logout': handler(none, (env) => {
+    env.state.signOut();
+    return { signedOut: true };
   }),
   'app:saveDiagnostics': handler(none, async (env) => {
     const target = await chooseSavePath(

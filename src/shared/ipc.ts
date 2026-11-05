@@ -5,7 +5,8 @@
 
 export const CHANNELS = [
   'app:info',
-  'app:setActor',
+  'app:login',
+  'app:logout',
   'app:saveDiagnostics',
   'settings:get',
   'settings:update',

@@ -136,7 +136,7 @@ export function inspectWorkspaceFile(path: string): WorkspaceCounts {
       throw new Error(
         'This backup was made by a newer version of the app. Install that version to restore it.',
       );
-    if (version < 1) throw new Error('This file is not an MCQ Test Generator workspace.');
+    if (version < 1) throw new Error('This file is not an MCQ Shuffler workspace.');
     const integrity = db.prepare('PRAGMA quick_check').get() as { quick_check: string };
     if (integrity.quick_check !== 'ok')
       throw new Error('The backup is damaged and cannot be restored.');
@@ -144,7 +144,7 @@ export function inspectWorkspaceFile(path: string): WorkspaceCounts {
   } catch (error) {
     if (error instanceof Error && /newer version|damaged|not an MCQ/.test(error.message))
       throw error;
-    throw new Error('This file is not an MCQ Test Generator workspace.', { cause: error });
+    throw new Error('This file is not an MCQ Shuffler workspace.', { cause: error });
   } finally {
     db?.close();
   }

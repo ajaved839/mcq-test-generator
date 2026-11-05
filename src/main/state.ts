@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import { BackupService } from './backup';
+import { withPrefix } from '../shared/names';
+import { verifyAdmin } from './auth';
 import { audit } from './db/audit';
 import { SCHEMA_VERSION, schemaVersion, WorkspaceTooNewError } from './db/migrations';
 import { getSettings } from './db/settings';
@@ -104,11 +106,34 @@ export class AppState {
     return this.actorName;
   }
 
-  setActor(name: string): void {
-    const staff = this.settings.staff;
-    if (staff.length && !staff.includes(name)) throw new Error('Pick a name from the staff list.');
-    this.actorName = name;
-    audit(this.ws, this.ctx, 'session.started', 'staff', name);
+  get signedIn(): boolean {
+    return this.actorName !== null;
+  }
+
+  /**
+   * Checks the super admin credential, then records `name` as the actor for every action in this
+   * session. Failed attempts are audited (without the password) and slowed down.
+   */
+  async signIn(username: string, password: string, name: string): Promise<void> {
+    // Every name is recorded as "Dr. <name>"; staff list entries are compared the same way.
+    const display = withPrefix(name);
+    if (!display) throw new Error('Enter your name.');
+    const staff = this.settings.staff.map(withPrefix);
+    if (staff.length && !staff.includes(display))
+      throw new Error('Pick a name from the staff list.');
+    if (!(await verifyAdmin(this.ws, username, password))) {
+      audit(this.ws, { actor: display, osUser: this.osUser }, 'session.login-failed', 'staff');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      throw new Error('The username or password is wrong.');
+    }
+    this.actorName = display;
+    audit(this.ws, this.ctx, 'session.started', 'staff', display);
+  }
+
+  signOut(): void {
+    if (!this.actorName) return;
+    audit(this.ws, this.ctx, 'session.ended', 'staff', this.actorName);
+    this.actorName = null;
   }
 
   /** Closing snapshot (last N kept), then close. */

@@ -1,0 +1,344 @@
+/* Sign-in screen: mint page, deep green brand panel, white form card. White text on the brand
+   panel and button sits on shades of at least #047857 so it keeps 4.5:1 contrast. */
+
+.page {
+  --leaf-50: #f0fdf4;
+  --leaf-100: #dcfce7;
+  --leaf-200: #bbf7d0;
+  --leaf-300: #86efac;
+  --leaf-600: #059669;
+  --leaf-700: #047857;
+  --leaf-800: #065f46;
+  --leaf-900: #064e3b;
+
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 15% 20%, var(--leaf-200) 0, transparent 45%),
+    radial-gradient(circle at 85% 80%, #ccfbf1 0, transparent 40%),
+    linear-gradient(135deg, var(--leaf-50) 0%, #ecfdf5 50%, var(--leaf-100) 100%);
+}
+
+.frame {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  width: min(980px, 100%);
+  min-height: 560px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow:
+    0 30px 60px -20px rgba(6, 78, 59, 0.35),
+    0 0 0 1px rgba(6, 95, 70, 0.08);
+  animation: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* ---- Brand panel ------------------------------------------------------------------------ */
+
+.brand {
+  position: relative;
+  overflow: hidden;
+  padding: 48px 44px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    radial-gradient(circle at 90% 0%, rgba(134, 239, 172, 0.35) 0, transparent 45%),
+    linear-gradient(160deg, var(--leaf-600) 0%, var(--leaf-700) 45%, var(--leaf-900) 100%);
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(2px);
+  opacity: 0.3;
+  pointer-events: none;
+  animation: float 9s ease-in-out infinite;
+}
+.blobA {
+  width: 260px;
+  height: 260px;
+  top: -80px;
+  right: -60px;
+  background: radial-gradient(circle, var(--leaf-300), transparent 70%);
+}
+.blobB {
+  width: 200px;
+  height: 200px;
+  bottom: -60px;
+  left: -50px;
+  background: radial-gradient(circle, #5eead4, transparent 70%);
+  animation-delay: -3s;
+}
+.blobC {
+  width: 120px;
+  height: 120px;
+  top: 45%;
+  right: 18%;
+  background: radial-gradient(circle, var(--leaf-200), transparent 70%);
+  animation-delay: -6s;
+}
+
+.brandTop,
+.brandBottom {
+  position: relative;
+  z-index: 1;
+}
+
+.logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(6px);
+  margin-bottom: 28px;
+}
+
+.brandTitle {
+  margin: 0 0 12px;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.brandSub {
+  display: block;
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--leaf-200);
+}
+
+.brandLead {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 34ch;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+  animation: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.feature:hover {
+  transform: translateX(4px);
+  background: rgba(255, 255, 255, 0.14);
+}
+.featureIcon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ---- Form panel ------------------------------------------------------------------------- */
+
+.form {
+  padding: 48px 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, var(--leaf-50) 100%);
+  color: #1f2937;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--leaf-800);
+  background: var(--leaf-100);
+  border: 1px solid var(--leaf-200);
+}
+
+.heading {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.sub {
+  margin: -10px 0 4px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+/* Inputs: soft green focus glow. */
+.input {
+  background: #ffffff;
+  border-color: #d1d5db;
+  color: #111827;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.input:focus,
+.input:focus-within {
+  border-color: var(--leaf-600);
+  box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.16);
+}
+.label {
+  color: #1f2937;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.prefix {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--leaf-800);
+  padding-right: 10px;
+  border-right: 1px solid var(--leaf-200);
+}
+
+.preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px dashed var(--leaf-300);
+  animation: rise 0.3s ease both;
+}
+.avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--leaf-600), var(--leaf-800));
+}
+
+.submit {
+  height: 46px;
+  font-size: 15px;
+  font-weight: 650;
+  border: 0;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--leaf-600) 0%, var(--leaf-800) 100%);
+  box-shadow: 0 10px 20px -10px rgba(4, 120, 87, 0.7);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
+}
+.submit:not(:disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 14px 26px -12px rgba(4, 120, 87, 0.8);
+}
+.submit:not(:disabled):active {
+  transform: translateY(0);
+}
+.submit:disabled {
+  background: var(--leaf-100);
+  color: var(--leaf-800);
+  box-shadow: none;
+}
+
+.foot {
+  font-size: 12px;
+  color: #4b5563;
+  text-align: center;
+}
+
+.shake {
+  animation: shake 0.4s ease;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-14px, 18px) scale(1.08);
+  }
+}
+@keyframes shake {
+  20%,
+  60% {
+    transform: translateX(-8px);
+  }
+  40%,
+  80% {
+    transform: translateX(8px);
+  }
+}
+
+@media (max-width: 860px) {
+  .frame {
+    grid-template-columns: 1fr;
+  }
+  .brand,
+  .form {
+    padding: 32px 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame,
+  .feature,
+  .preview,
+  .blob,
+  .shake {
+    animation: none;
+  }
+  .submit,
+  .feature {
+    transition: none;
+  }
+}
+
+/* The global focus ring (app.css) is blue and !important; keep it, but green on this screen. */
+.page :focus-visible {
+  outline-color: var(--leaf-700) !important;
+}

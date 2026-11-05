@@ -23,4 +23,13 @@ describe('IPC contract', () => {
     ).toBe(true);
     expect(api['backup:restore'].input.safeParse({ token: 't' }).success).toBe(false);
   });
+
+  it('only app:info and app:login are reachable before sign-in', async () => {
+    const { api, PUBLIC_CHANNELS } = await import('../../src/main/api');
+    expect([...PUBLIC_CHANNELS].sort()).toEqual(['app:info', 'app:login']);
+    for (const name of PUBLIC_CHANNELS) expect(Object.keys(api)).toContain(name);
+    expect(api['app:login'].input.safeParse({ username: 'admin', password: '' }).success).toBe(
+      false,
+    );
+  });
 });
