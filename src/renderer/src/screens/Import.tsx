@@ -25,6 +25,7 @@ import type { Difficulty } from '../../../core/types';
 import { call, fileToUpload, onProgress, type Out } from '../api';
 import { useAppData } from '../App';
 import { ReviewQueue } from '../components/ReviewQueue';
+import { SubjectSelect } from '../components/SubjectSelect';
 import { formatDateTime, notifyError, notifyOk, useAction, useLoad, useNav } from '../lib';
 import { pdfToImages, type RenderedPage } from '../pdf';
 
@@ -47,22 +48,13 @@ const CONVENTIONS = [
 ] as const;
 type Convention = (typeof CONVENTIONS)[number]['value'];
 
-function DefaultsFields({
-  value,
-  onChange,
-  subjects,
-}: {
-  value: Defaults;
-  onChange: (v: Defaults) => void;
-  subjects: string[];
-}) {
+function DefaultsFields({ value, onChange }: { value: Defaults; onChange: (v: Defaults) => void }) {
   return (
     <SimpleGrid cols={{ base: 1, sm: 4 }}>
-      <Select
+      <SubjectSelect
         label="Subject for these questions"
-        data={subjects}
-        value={value.subject || null}
-        onChange={(v) => onChange({ ...value, subject: v ?? '' })}
+        value={value.subject}
+        onChange={(v) => onChange({ ...value, subject: v })}
         required
       />
       <TextInput
@@ -403,7 +395,7 @@ function WordFlow({ onStaged }: { onStaged: (batchIds: string[]) => void }) {
               These settings apply to every file. A blank topic uses each file&apos;s section
               headings; a blank source uses each file name.
             </Text>
-            <DefaultsFields value={defaults} onChange={setDefaults} subjects={settings.subjects} />
+            <DefaultsFields value={defaults} onChange={setDefaults} />
             <Group>
               <Button loading={busy} disabled={!defaults.subject} onClick={() => void stageAll()}>
                 {files.length > 1
@@ -537,7 +529,7 @@ function PhotoFlow({ onStaged }: { onStaged: (batchId: string) => void }) {
               onChange={(v) => setConvention((v ?? 'auto') as Convention)}
               allowDeselect={false}
             />
-            <DefaultsFields value={defaults} onChange={setDefaults} subjects={settings.subjects} />
+            <DefaultsFields value={defaults} onChange={setDefaults} />
             <Group>
               <Button
                 loading={busy}
