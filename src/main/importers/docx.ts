@@ -38,6 +38,8 @@ export interface DocxReadResult {
 
 const EMU_PER_PX = 9525;
 const MAX_ENTRY_BYTES = 100 * 1024 * 1024;
+/** One answer-key table cell: "1. A", "12) c", "7 - (b)". */
+const KEY_CELL = /^(\d{1,4})\s*[.):\-–]?\s*\(?([a-e])\)?$/i;
 
 interface StyleInfo {
   b?: boolean;
@@ -45,6 +47,8 @@ interface StyleInfo {
   basedOn?: string;
   numId?: string;
   ilvl?: number;
+  /** Word heading or title style (has an outline level), e.g. a section name above questions. */
+  heading?: boolean;
 }
 
 interface LevelDef {
@@ -169,13 +173,19 @@ function readStyles(root: Element | null): Map<string, StyleInfo> {
   for (const s of children(root).filter((c) => isEl(c, NS.w, 'style'))) {
     const id = attr(s, NS.w, 'styleId') ?? '';
     const rPr = child(s, NS.w, 'rPr');
-    const numPr = child(child(s, NS.w, 'pPr') ?? s, NS.w, 'numPr');
+    const pPr = child(s, NS.w, 'pPr');
+    const numPr = child(pPr ?? s, NS.w, 'numPr');
+    const outline = pPr ? attr(child(pPr, NS.w, 'outlineLvl'), NS.w, 'val') : null;
     styles.set(id, {
       b: rPr ? isOn(child(rPr, NS.w, 'b')) : undefined,
       i: rPr ? isOn(child(rPr, NS.w, 'i')) : undefined,
       basedOn: attr(child(s, NS.w, 'basedOn'), NS.w, 'val') ?? undefined,
       numId: numPr ? (attr(child(numPr, NS.w, 'numId'), NS.w, 'val') ?? undefined) : undefined,
       ilvl: numPr ? Number(attr(child(numPr, NS.w, 'ilvl'), NS.w, 'val') ?? 0) : undefined,
+      heading:
+        (outline !== null && Number(outline) < 9) || /^(?:heading\d|title)$/i.test(id)
+          ? true
+          : undefined,
     });
   }
   return styles;
@@ -193,6 +203,7 @@ function styleChain(styles: Map<string, StyleInfo>, id: string | null): StyleInf
     out.i ??= s.i;
     out.numId ??= s.numId;
     out.ilvl ??= s.ilvl;
+    out.heading ??= s.heading;
     current = s.basedOn ?? null;
   }
   return out;
@@ -399,6 +410,9 @@ export async function readDocx(bytes: Uint8Array, storeImage: StoreImage): Promi
       content,
       ref: `paragraph ${stats.paragraphs}`,
       ...(listLabel ? { listLabel } : {}),
+      ...(paragraphStyle.heading || /^(?:heading\d|title)$/i.test(styleId ?? '')
+        ? { heading: true }
+        : {}),
       ...(ctx.notes.length ? { notes: ctx.notes } : {}),
     };
   };
@@ -437,6 +451,29 @@ export async function readDocx(bytes: Uint8Array, storeImage: StoreImage): Promi
           text(
             flat
               .map((r) => r.map((v, i) => (i % 2 === 0 ? `${v.replace('.', '')}.` : v)).join(' '))
+              .join(' '),
+          ),
+        ],
+        ref: `table ${stats.tables}`,
+      };
+    }
+    // A grid of "1. A" cells (columns such as "Q 1–20 | Q 21–40") is also an answer key.
+    // Leading header rows are allowed as long as they hold no number-letter pairs.
+    const firstKeyRow = flat.findIndex((r) => r.some((v) => KEY_CELL.test(v)));
+    const gridKey =
+      firstKeyRow >= 0 &&
+      flat.slice(0, firstKeyRow).every((r) => r.every((v) => !/^\d{1,4}\b/.test(v))) &&
+      flat.slice(firstKeyRow).every((r) => r.every((v) => v === '' || KEY_CELL.test(v))) &&
+      flat.slice(firstKeyRow).flat().filter(Boolean).length >= 2;
+    if (gridKey) {
+      return {
+        content: [
+          text(
+            flat
+              .slice(firstKeyRow)
+              .flat()
+              .filter(Boolean)
+              .map((v) => v.replace(KEY_CELL, '$1. $2'))
               .join(' '),
           ),
         ],

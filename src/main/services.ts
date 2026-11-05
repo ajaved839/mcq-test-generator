@@ -29,7 +29,8 @@ export function mcqToCandidate(mcq: ParsedMcq, defaults: ImportDefaults): Review
     correct: mcq.correct,
     explanation: mcq.explanation,
     subject: defaults.subject,
-    topic: defaults.topic,
+    // A blank topic takes the file's section heading, so "Burn Injury" questions keep it.
+    topic: defaults.topic || (mcq.section ?? ''),
     difficulty: defaults.difficulty,
     tags: [],
     source: defaults.source,

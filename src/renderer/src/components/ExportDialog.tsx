@@ -7,6 +7,7 @@ const KINDS = [
   { value: 'paper-pdf', label: 'Question paper (PDF)' },
   { value: 'paper-docx', label: 'Question paper (Word)' },
   { value: 'key-pdf', label: 'Answer key (PDF, marked confidential)' },
+  { value: 'key-docx', label: 'Answer key (Word)' },
   { value: 'record-xlsx', label: 'Test record (Excel)' },
 ] as const;
 
@@ -25,6 +26,7 @@ export function ExportDialog({
   const [kinds, setKinds] = useState<string[]>(['paper-pdf', 'key-pdf', 'record-xlsx']);
   const [chosen, setChosen] = useState<string[]>(versions);
   const [explanations, setExplanations] = useState(false);
+  const [keyAtEnd, setKeyAtEnd] = useState(true);
   const [progress, setProgress] = useState<{ label: string; pct: number } | null>(null);
   const [busy, run] = useAction();
 
@@ -61,6 +63,12 @@ export function ExportDialog({
           </Checkbox.Group>
         ) : null}
         <Checkbox
+          label="Add the answer key at the end of the question paper"
+          description="Like the source sets. Untick for papers handed to students."
+          checked={keyAtEnd}
+          onChange={(e) => setKeyAtEnd(e.currentTarget.checked)}
+        />
+        <Checkbox
           label="Print explanations on the answer key"
           checked={explanations}
           onChange={(e) => setExplanations(e.currentTarget.checked)}
@@ -85,6 +93,7 @@ export function ExportDialog({
                   kinds: kinds as never,
                   versions: chosen as never,
                   includeExplanations: explanations,
+                  answerKeyAtEnd: keyAtEnd,
                 }),
               );
               setProgress(null);

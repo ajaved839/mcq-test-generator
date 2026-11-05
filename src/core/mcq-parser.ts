@@ -31,6 +31,8 @@ export interface SourceLine {
   /** Rendered label of a Word auto-numbered paragraph, e.g. "12." or "b)". */
   listLabel?: string;
   page?: number;
+  /** True for a Word heading/title paragraph; treated as a section name, never question text. */
+  heading?: boolean;
   /** Importer notes (e.g. "MathType equation could not be converted") passed to the MCQ. */
   notes?: string[];
 }
@@ -49,6 +51,8 @@ export interface ParsedMcq {
   warnings: string[];
   refs: string[];
   pages: number[];
+  /** The section heading above the question (e.g. "Burn Injury"), if the file had one. */
+  section: string | null;
 }
 
 export interface UnplacedBlock {
@@ -87,7 +91,9 @@ const INLINE_ANSWER =
 const TRAILING_ANSWER = /\s(?:ans(?:wer)?)\s*[:.\-–=]\s*[([]?\s*([a-e])\s*[)\]]?\s*$/i;
 const EXPLANATION_LINE =
   /^\s*(?:explanation|explain|exp|solution|reason|rationale|hint)\s*[:.\-–]\s*/i;
-const KEY_HEADER = /^\s*(?:answer\s*keys?|answers?|keys?|solutions?)\s*[:.\-–]?\s*$/i;
+/** "Answer key", "Answers:", or a titled key such as "Answer Key – Set 1". */
+const KEY_HEADER =
+  /^\s*(?:answer\s*keys?|answers?|keys?|solutions?)(?:\s*[:.\-–—(]?\s*(?:for\s+)?(?:set|paper|test|part|version)\s*[\w]{1,4}\s*\)?)?\s*[:.\-–]?\s*$/i;
 const KEY_PAIR = /(\d{1,4})\s*[.):\-–=]?\s*[([]?\s*([a-e])\s*[)\]]?(?![a-z])/gi;
 const ASTERISK_MARK = /^\s*[*✓✔]\s*|\s*[*✓✔]\s*$/;
 
@@ -148,10 +154,11 @@ interface Draft {
   warnings: string[];
   refs: string[];
   pages: number[];
+  section: string | null;
   state: 'stem' | 'options' | 'explanation';
 }
 
-function newDraft(number: number | null, line: SourceLine): Draft {
+function newDraft(number: number | null, line: SourceLine, section: string | null): Draft {
   return {
     number,
     stemParts: [],
@@ -163,6 +170,7 @@ function newDraft(number: number | null, line: SourceLine): Draft {
     warnings: [],
     refs: line.ref ? [line.ref] : [],
     pages: line.page !== undefined ? [line.page] : [],
+    section,
     state: 'stem',
   };
 }
@@ -208,6 +216,9 @@ export function parseMcqLines(
   const answerKey: Record<number, OptionLetter> = {};
   let inKey = false;
   let current: Draft | null = null;
+  let section: string | null = null;
+  // After a section heading, loose text belongs to no question until the next one starts.
+  let afterHeading = false;
 
   const unplace = (line: SourceLine, reason: string, content: RichText = line.content): void => {
     if (isEmptyRich(content)) return;
@@ -220,8 +231,9 @@ export function parseMcqLines(
   };
 
   const startQuestion = (number: number | null, line: SourceLine): Draft => {
-    const draft = newDraft(number, line);
+    const draft = newDraft(number, line, section);
     noteSource(draft, line);
+    afterHeading = false;
     drafts.push(draft);
     current = draft;
     return draft;
@@ -291,6 +303,17 @@ export function parseMcqLines(
       } else {
         unplace({ ...line, content }, 'Text after the answer key');
       }
+      continue;
+    }
+
+    if (
+      line.heading &&
+      !QUESTION_START.test(offsetText) &&
+      !OPTION_START.test(offsetText) &&
+      !matchAnswerLine(offsetText)
+    ) {
+      section = plainValue.trim() || null;
+      afterHeading = true;
       continue;
     }
 
@@ -402,6 +425,10 @@ export function parseMcqLines(
       unplace({ ...line, content }, 'Text before the first question');
       continue;
     }
+    if (afterHeading) {
+      unplace({ ...line, content }, 'Text under a section heading');
+      continue;
+    }
     appendContinuation(draft, content, line);
   }
 
@@ -492,5 +519,6 @@ function finalizeDraft(
     warnings,
     refs: draft.refs,
     pages: draft.pages,
+    section: draft.section,
   };
 }

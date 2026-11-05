@@ -5,6 +5,7 @@ import {
   Footer,
   Header,
   ImageRun,
+  PageBreak,
   Packer,
   PageNumber,
   Paragraph,
@@ -119,6 +120,8 @@ export interface WordPaperInput {
   questions: ReadonlyMap<string, BankQuestion>;
   groupBySubject: boolean;
   logo: ImageSource | null;
+  /** Print this version's answer key on a new page after the questions. */
+  answerKeyAtEnd?: boolean;
 }
 
 export async function buildPaperDocx(
@@ -245,6 +248,18 @@ export async function buildPaperDocx(
       children: [new TextRun({ text: 'END OF PAPER', bold: true, size })],
     }),
   );
+  if (input.answerKeyAtEnd) {
+    children.push(
+      new Paragraph({
+        children: [
+          new PageBreak(),
+          new TextRun({ text: 'Answer key', bold: true, size: size + 4 }),
+        ],
+        spacing: { after: 120 },
+      }),
+      keyGrid(version, size),
+    );
+  }
 
   const footerText = [h.showTestCode && h.code ? h.code : '', letter ? `Version ${letter}` : '']
     .filter(Boolean)
@@ -291,6 +306,28 @@ export async function buildPaperDocx(
     ],
   });
   return new Uint8Array(await Packer.toBuffer(doc));
+}
+
+/** One version's answers as a grid: question numbers over the letters, ten to a row. */
+function keyGrid(version: PaperVersion, size: number): Table {
+  const perRow = 10;
+  const cell = (value: string, bold: boolean): TableCell =>
+    new TableCell({
+      width: { size: 10, type: WidthType.PERCENTAGE },
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: value, bold, size })],
+        }),
+      ],
+    });
+  const rows: TableRow[] = [];
+  for (let start = 0; start < version.questions.length; start += perRow) {
+    const slice = version.questions.slice(start, start + perRow);
+    rows.push(new TableRow({ children: slice.map((_, i) => cell(String(start + i + 1), false)) }));
+    rows.push(new TableRow({ children: slice.map((q) => cell(q.correctLetter, true)) }));
+  }
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
 
 /** Simple Word answer key, used only when staff ask for an editable key. */

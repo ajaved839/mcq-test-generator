@@ -87,6 +87,36 @@ describe('MCQ parser', () => {
     expect(r.mcqs[0].answerFrom).toBe('answer-key');
   });
 
+  it('reads a titled answer key such as "Answer Key – Set 1"', () => {
+    const r = parseMcqLines(
+      lines('1. First?', 'a) x', 'b) y', 'Answer Key – Set 1', '1. B', 'Answers (Paper 2):'),
+    );
+    expect(r.mcqs[0].correct).toBe(1);
+    expect(r.mcqs[0].warnings).toEqual([]);
+  });
+
+  it('treats heading lines as sections, not as text of the previous option', () => {
+    const r = parseMcqLines([
+      { content: [text('Preoperative Care')], heading: true },
+      ...lines('1. First?', 'a) x', 'b) y', 'Ans: a'),
+      { content: [text('Burn Injury')], heading: true },
+      ...lines('Read the cases below.', '2. Second?', 'a) p', 'b) q', 'Ans: b'),
+    ]);
+    expect(r.mcqs.map((m) => m.section)).toEqual(['Preoperative Care', 'Burn Injury']);
+    expect(plainOptions(r.mcqs[0].options)).toEqual(['x', 'y']);
+    expect(r.mcqs.flatMap((m) => m.warnings)).toEqual([]);
+    expect(r.unplaced.map((u) => u.reason)).toEqual(['Text under a section heading']);
+  });
+
+  it('still reads a numbered question that uses a heading style', () => {
+    const r = parseMcqLines([
+      { content: [text('1. Styled as a heading?')], heading: true },
+      ...lines('a) x', 'b) y', 'Ans: b'),
+    ]);
+    expect(r.mcqs).toHaveLength(1);
+    expect(r.mcqs[0].correct).toBe(1);
+  });
+
   it('reads a key without a header when the line is only pairs', () => {
     const r = parseMcqLines(
       lines('1. First?', 'a) x', 'b) y', '2. Second?', 'a) p', 'b) q', '1-b, 2-a'),

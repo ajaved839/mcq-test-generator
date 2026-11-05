@@ -596,6 +596,7 @@ export const api = {
       token,
       stats,
       mcqs: parsed.mcqs.length,
+      answered: parsed.mcqs.filter((m) => m.correct !== null).length,
       unplaced: parsed.unplaced.length,
       detected: parsed.detected,
       suggested: suggestConvention(parsed.detected),
@@ -982,6 +983,7 @@ export const api = {
         kinds: z.array(exportKinds).min(1),
         versions: z.array(z.enum(['A', 'B', 'C', 'D'])).min(1),
         includeExplanations: z.boolean(),
+        answerKeyAtEnd: z.boolean().default(false),
       })
       .strict(),
     async (env, input) => {
@@ -1030,6 +1032,7 @@ export const api = {
                 groupBySubject,
                 fontBase,
                 html: htmlOptions(),
+                answerKeyAtEnd: input.answerKeyAtEnd,
               });
               const pdf = await htmlToPdf(html, {
                 left: header.showTestCode ? header.code : '',
@@ -1055,6 +1058,7 @@ export const api = {
                   questions: map,
                   groupBySubject,
                   logo,
+                  answerKeyAtEnd: input.answerKeyAtEnd,
                 },
                 {
                   image: (ref) => imageSource(env, ref),

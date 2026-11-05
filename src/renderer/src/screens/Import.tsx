@@ -278,12 +278,16 @@ function ExcelFlow({ onStaged }: { onStaged: (batchId: string) => void }) {
   );
 }
 
-function WordFlow({ onStaged }: { onStaged: (batchId: string) => void }) {
+interface WordFile extends Out<'import:docxAnalyze'> {
+  fileName: string;
+  convention: Convention;
+}
+
+/** Word import for one or more files. Each file is parsed and staged on its own, so every
+ * set keeps its own answer key and question numbering. */
+function WordFlow({ onStaged }: { onStaged: (batchIds: string[]) => void }) {
   const { settings } = useAppData();
-  const [analysis, setAnalysis] = useState<
-    (Out<'import:docxAnalyze'> & { fileName: string }) | null
-  >(null);
-  const [convention, setConvention] = useState<Convention>('auto');
+  const [files, setFiles] = useState<WordFile[]>([]);
   const [defaults, setDefaults] = useState<Defaults>({
     subject: settings.subjects[0] ?? '',
     topic: '',
@@ -292,71 +296,119 @@ function WordFlow({ onStaged }: { onStaged: (batchId: string) => void }) {
   });
   const [busy, run] = useAction();
 
+  const addFiles = async (dropped: File[]): Promise<void> => {
+    // One at a time so a bad file reports its own error and the others still load.
+    for (const f of dropped) {
+      const r = await run(async () => call('import:docxAnalyze', await fileToUpload(f)));
+      if (r) setFiles((list) => [...list, { ...r, fileName: f.name, convention: r.suggested }]);
+    }
+  };
+
+  const update = (index: number, patch: Partial<WordFile>): void =>
+    setFiles((list) => list.map((f, i) => (i === index ? { ...f, ...patch } : f)));
+
+  const stageAll = async (): Promise<void> => {
+    const staged: string[] = [];
+    let mcqs = 0;
+    let unplaced = 0;
+    const remaining: WordFile[] = [];
+    for (const f of files) {
+      const r = await run(() =>
+        call('import:docxStage', {
+          token: f.token,
+          convention: f.convention,
+          defaults: { ...defaults, source: defaults.source || f.fileName },
+        }),
+      );
+      if (r) {
+        staged.push(r.batch.id);
+        mcqs += r.mcqs;
+        unplaced += r.unplaced;
+      } else {
+        remaining.push(f);
+      }
+    }
+    // Files that failed stay listed so they can be retried or removed.
+    setFiles(remaining);
+    if (staged.length) {
+      notifyOk(
+        `${mcqs} questions from ${staged.length} file${staged.length > 1 ? 's' : ''} sent to review${unplaced ? `, ${unplaced} flagged blocks` : ''}.`,
+      );
+      onStaged(staged);
+    }
+  };
+
+  const total = files.reduce((s, f) => s + f.mcqs, 0);
+
   return (
     <Stack>
       <Dropzone
-        onDrop={async ([f]) => {
-          const r = await run(async () => call('import:docxAnalyze', await fileToUpload(f)));
-          if (r) {
-            setAnalysis({ ...r, fileName: f.name });
-            setConvention(r.suggested);
-            setDefaults((d) => ({ ...d, source: f.name }));
-          }
-        }}
+        onDrop={(dropped) => void addFiles(dropped)}
         accept={[
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           '.docx',
         ]}
-        maxFiles={1}
+        multiple
         loading={busy}
       >
         <Group justify="center" mih={90}>
           <IconUpload size={28} aria-hidden />
-          <Text>Drop a Word (.docx) file here. Old .doc files must be saved as .docx first.</Text>
+          <Text>
+            Drop one or more Word (.docx) files here. Old .doc files must be saved as .docx first.
+          </Text>
         </Group>
       </Dropzone>
-      {analysis ? (
-        <Card>
+      {files.map((f, index) => (
+        <Card key={f.token}>
           <Stack>
-            <Title order={3} size="h5">
-              {analysis.fileName}
-            </Title>
+            <Group justify="space-between">
+              <Title order={3} size="h5">
+                {f.fileName}
+              </Title>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="red"
+                onClick={() => setFiles((list) => list.filter((_, i) => i !== index))}
+              >
+                Remove
+              </Button>
+            </Group>
             <Text size="sm">
-              Found {analysis.mcqs} questions, {analysis.stats.images} images,{' '}
-              {analysis.stats.equations} equations and {analysis.stats.tables} tables.
-              {analysis.unplaced
-                ? ` ${analysis.unplaced} blocks of text could not be placed and will be flagged in review.`
+              Found {f.mcqs} questions ({f.answered} with answers
+              {f.answerKeyEntries ? ` from an answer key of ${f.answerKeyEntries}` : ''}),{' '}
+              {f.stats.images} images, {f.stats.equations} equations and {f.stats.tables} tables.
+              {f.unplaced
+                ? ` ${f.unplaced} blocks of text could not be placed and will be flagged in review.`
                 : ''}
-              {analysis.stats.notes
-                ? ` ${analysis.stats.notes} items need attention (for example old MathType equations).`
+              {f.stats.notes
+                ? ` ${f.stats.notes} items need attention (for example old MathType equations).`
                 : ''}
             </Text>
             <Select
               label="How are answers marked in this file?"
-              description={`Seen in this file: answer lines ${analysis.detected['answer-line']}, answer key ${analysis.detected['answer-key']}, bold ${analysis.detected.bold}, highlighted ${analysis.detected.highlight}, asterisk ${analysis.detected.asterisk}`}
+              description={`Seen in this file: answer lines ${f.detected['answer-line']}, answer key ${f.detected['answer-key']}, bold ${f.detected.bold}, highlighted ${f.detected.highlight}, asterisk ${f.detected.asterisk}`}
               data={CONVENTIONS.map((c) => ({ ...c }))}
-              value={convention}
-              onChange={(v) => setConvention((v ?? 'auto') as Convention)}
+              value={f.convention}
+              onChange={(v) => update(index, { convention: (v ?? 'auto') as Convention })}
               allowDeselect={false}
             />
+          </Stack>
+        </Card>
+      ))}
+      {files.length ? (
+        <Card>
+          <Stack>
+            <Text size="sm" c="dimmed">
+              These settings apply to every file. A blank topic uses each file&apos;s section
+              headings; a blank source uses each file name.
+            </Text>
             <DefaultsFields value={defaults} onChange={setDefaults} subjects={settings.subjects} />
             <Group>
-              <Button
-                loading={busy}
-                disabled={!defaults.subject}
-                onClick={async () => {
-                  const r = await run(() =>
-                    call('import:docxStage', { token: analysis.token, convention, defaults }),
-                  );
-                  if (r) {
-                    notifyOk(
-                      `${r.mcqs} questions sent to review${r.unplaced ? `, ${r.unplaced} flagged blocks` : ''}.`,
-                    );
-                    onStaged(r.batch.id);
-                  }
-                }}
-              >
-                Send to review
+              <Button loading={busy} disabled={!defaults.subject} onClick={() => void stageAll()}>
+                {files.length > 1
+                  ? `Send ${files.length} files (${total} questions) to review`
+                  : 'Send to review'}
               </Button>
             </Group>
           </Stack>
@@ -524,11 +576,18 @@ function PhotoFlow({ onStaged }: { onStaged: (batchId: string) => void }) {
 export function ImportScreen() {
   const { params, go } = useNav();
   const [source, setSource] = useState<Source | null>(null);
+  const [tab, setTab] = useState<string | null>('new');
   const batches = useLoad(() => call('import:batches'));
 
   if (params.batch)
     return <ReviewQueue batchId={params.batch} onBack={() => go({ screen: 'import' })} />;
   const openBatch = (id: string): void => go({ screen: 'import', params: { batch: id } });
+  // Several Word files make several batches; list them instead of opening just one.
+  const openBatches = (ids: string[]): void => {
+    if (ids.length === 1) return openBatch(ids[0]);
+    void batches.reload();
+    setTab('batches');
+  };
 
   const sources: Array<{ key: Source; title: string; text: string; icon: ReactNode }> = [
     {
@@ -554,7 +613,7 @@ export function ImportScreen() {
   return (
     <Stack gap="md">
       <Title order={2}>Import</Title>
-      <Tabs defaultValue="new">
+      <Tabs value={tab} onChange={setTab}>
         <Tabs.List>
           <Tabs.Tab value="new">New import</Tabs.Tab>
           <Tabs.Tab value="batches">
@@ -589,7 +648,7 @@ export function ImportScreen() {
               ))}
             </SimpleGrid>
             {source === 'excel' ? <ExcelFlow onStaged={openBatch} /> : null}
-            {source === 'word' ? <WordFlow onStaged={openBatch} /> : null}
+            {source === 'word' ? <WordFlow onStaged={openBatches} /> : null}
             {source === 'photo' ? <PhotoFlow onStaged={openBatch} /> : null}
           </Stack>
         </Tabs.Panel>
